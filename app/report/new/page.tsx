@@ -115,7 +115,12 @@ export default function NewReportPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ store_name: store, shift, transcript }),
       });
-      if (!res.ok) throw new Error((await res.json()).error);
+      if (!res.ok) {
+        const text = await res.text();
+        let message = "送信に失敗しました（しばらく待ってから再試行してください）";
+        try { message = JSON.parse(text).error ?? message; } catch { /* ignore */ }
+        throw new Error(message);
+      }
       setStatus("done");
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : "送信に失敗しました");
