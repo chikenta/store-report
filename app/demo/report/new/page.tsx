@@ -77,7 +77,7 @@ export default function DemoReportPage() {
             サンプル
           </Badge>
         </div>
-        <Button variant="ghost" size="sm" onClick={() => router.push("/demo")}>
+        <Button size="sm" onClick={() => router.push("/demo")}>
           ダッシュボード
         </Button>
       </header>

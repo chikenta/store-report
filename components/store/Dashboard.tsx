@@ -1,13 +1,25 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
-import { Loader2, RefreshCw } from "lucide-react";
+import { Loader2, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import type { Report, WeeklySummary, MonthlySummary } from "@/lib/store-types";
 import {
   DEMO_MONTHLIES,
@@ -15,7 +27,7 @@ import {
   DEMO_WEEKLIES,
 } from "@/lib/store-demo-data";
 
-const STORES = ["北店", "南店", "東店", "西店"];
+const INITIAL_STORES = ["北店", "南店", "東店", "西店"];
 
 type Pane4Tab = "weekly" | "monthly";
 
@@ -33,9 +45,14 @@ function filterDemoByStore(store: string) {
 }
 
 export function Dashboard({ demo = false }: DashboardProps) {
-  const [selectedStore, setSelectedStore] = useState(STORES[0]);
+  const [stores, setStores] = useState<string[]>(INITIAL_STORES);
+  const [selectedStore, setSelectedStore] = useState(INITIAL_STORES[0]);
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [pane4Tab, setPane4Tab] = useState<Pane4Tab>("weekly");
+
+  const [isAddingStore, setIsAddingStore] = useState(false);
+  const [newStoreName, setNewStoreName] = useState("");
+  const addInputRef = useRef<HTMLInputElement>(null);
 
   const [reports, setReports] = useState<Report[]>([]);
   const [weeklies, setWeeklies] = useState<WeeklySummary[]>([]);
@@ -44,6 +61,35 @@ export function Dashboard({ demo = false }: DashboardProps) {
   const [loadingWeeklies, setLoadingWeeklies] = useState(false);
   const [generatingWeekly, setGeneratingWeekly] = useState(false);
   const [generatingMonthly, setGeneratingMonthly] = useState(false);
+
+  function handleAddStoreStart() {
+    setIsAddingStore(true);
+    setNewStoreName("");
+    setTimeout(() => addInputRef.current?.focus(), 0);
+  }
+
+  function handleAddStoreCommit() {
+    const name = newStoreName.trim();
+    if (name && !stores.includes(name)) {
+      setStores((prev) => [...prev, name]);
+      setSelectedStore(name);
+    }
+    setIsAddingStore(false);
+    setNewStoreName("");
+  }
+
+  function handleAddStoreCancel() {
+    setIsAddingStore(false);
+    setNewStoreName("");
+  }
+
+  function handleDeleteStore(store: string) {
+    const next = stores.filter((s) => s !== store);
+    setStores(next);
+    if (selectedStore === store) {
+      setSelectedStore(next[0] ?? "");
+    }
+  }
 
   const selectedReport = reports.find((r) => r.id === selectedReportId) ?? reports[0] ?? null;
 
@@ -143,26 +189,79 @@ export function Dashboard({ demo = false }: DashboardProps) {
       </header>
 
       {/* 4ペイン */}
-      <div className="grid min-h-0 flex-1 grid-cols-[140px_220px_1fr_220px]">
+      <div className="grid min-h-0 flex-1 grid-cols-[100px_220px_1fr_220px]">
         {/* Pane1: 店舗リスト */}
         <aside className="flex flex-col border-r border-border">
-          <div className="border-b border-border px-3 py-2">
+          <div className="flex items-center justify-between border-b border-border px-3 py-2">
             <span className="text-xs font-semibold text-muted-foreground">店舗</span>
+            <button
+              onClick={handleAddStoreStart}
+              className="flex items-center justify-center rounded-md p-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              aria-label="店舗を追加"
+            >
+              <Plus className="size-3.5" />
+            </button>
           </div>
           <ul className="flex flex-col">
-            {STORES.map((store) => (
-              <li key={store}>
+            {stores.map((store) => (
+              <li key={store} className="group/store-item relative">
                 <button
                   onClick={() => setSelectedStore(store)}
-                  className="flex w-full flex-col gap-0.5 px-3 py-2.5 text-left transition-colors hover:bg-accent data-[active=true]:bg-accent"
+                  className="flex w-full flex-col gap-0.5 px-3 py-2.5 pr-8 text-left transition-colors hover:bg-accent data-[active=true]:bg-accent"
                   data-active={selectedStore === store}
                 >
-                  <span className={`text-sm ${selectedStore === store ? "font-semibold" : "text-muted-foreground"}`}>
+                  <span className={`truncate text-sm ${selectedStore === store ? "font-semibold" : "text-muted-foreground"}`}>
                     {store}
                   </span>
                 </button>
+                <AlertDialog>
+                  <AlertDialogTrigger
+                    render={
+                      <button
+                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover/store-item:opacity-100"
+                        aria-label={`${store}を削除`}
+                      />
+                    }
+                  >
+                    <Trash2 className="size-3.5" />
+                  </AlertDialogTrigger>
+                  <AlertDialogContent size="sm">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>店舗を削除しますか？</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        「{store}」を店舗リストから削除します。この操作は元に戻せません。
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>いいえ</AlertDialogCancel>
+                      <AlertDialogAction
+                        variant="destructive"
+                        onClick={() => handleDeleteStore(store)}
+                      >
+                        はい、削除する
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </li>
             ))}
+            {isAddingStore && (
+              <li className="px-2 py-1.5">
+                <Input
+                  ref={addInputRef}
+                  value={newStoreName}
+                  onChange={(e) => setNewStoreName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleAddStoreCommit();
+                    if (e.key === "Escape") handleAddStoreCancel();
+                  }}
+                  onBlur={handleAddStoreCommit}
+                  placeholder="店舗名を入力"
+                  maxLength={4}
+                  className="h-7 text-xs"
+                />
+              </li>
+            )}
           </ul>
         </aside>
 
@@ -197,8 +296,8 @@ export function Dashboard({ demo = false }: DashboardProps) {
                           {r.shift}
                         </Badge>
                       </div>
-                      <p className="line-clamp-2 text-xs text-muted-foreground">
-                        {r.summary}
+                      <p className="truncate text-xs text-muted-foreground">
+                        {r.summary.slice(0, 15)}
                       </p>
                     </button>
                   </li>

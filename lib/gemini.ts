@@ -16,7 +16,8 @@ function getModel(): GenerativeModel {
  * 日報テキストを100文字前後に要約する
  */
 export async function summarizeReport(transcript: string): Promise<string> {
-  const prompt = `以下は店舗マネージャーの日報（音声文字起こし）です。
+  const prompt = `以下は同日・同シフトで複数のスタッフが入力した日報です（「---」で区切られています）。
+時系列順に並んでいるため、後の入力が前の内容を上書き・解決している場合はその最終状態を優先してください。
 100文字以内で要点を箇条書きせず簡潔に要約してください。
 
 ${transcript}`;

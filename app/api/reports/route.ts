@@ -43,7 +43,41 @@ export async function POST(request: NextRequest) {
   }
 
   const { store_name, shift, transcript, reported_at } = parsed.data;
+  const reportedAt = reported_at ?? new Date().toISOString();
 
+  // 同日・同シフトの既存日報を検索
+  const dateStart = reportedAt.slice(0, 10) + "T00:00:00.000Z";
+  const dateEnd = reportedAt.slice(0, 10) + "T23:59:59.999Z";
+  const { data: existing } = await supabase
+    .from("reports")
+    .select("*")
+    .eq("store_name", store_name)
+    .eq("shift", shift)
+    .gte("reported_at", dateStart)
+    .lte("reported_at", dateEnd)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (existing) {
+    // 既存の transcript に追記して再要約
+    const mergedTranscript = existing.transcript + "\n---\n" + transcript;
+    const summary = await summarizeReport(mergedTranscript);
+
+    const { data, error } = await supabase
+      .from("reports")
+      .update({ transcript: mergedTranscript, summary })
+      .eq("id", existing.id)
+      .select()
+      .single();
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    return NextResponse.json(data, { status: 200 });
+  }
+
+  // 新規登録
   const summary = await summarizeReport(transcript);
 
   const { data, error } = await supabase
@@ -53,7 +87,7 @@ export async function POST(request: NextRequest) {
       shift,
       transcript,
       summary,
-      reported_at: reported_at ?? new Date().toISOString(),
+      reported_at: reportedAt,
     })
     .select()
     .single();
