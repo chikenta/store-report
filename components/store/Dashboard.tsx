@@ -61,6 +61,22 @@ export function Dashboard({ demo = false }: DashboardProps) {
   const [loadingWeeklies, setLoadingWeeklies] = useState(false);
   const [generatingWeekly, setGeneratingWeekly] = useState(false);
   const [generatingMonthly, setGeneratingMonthly] = useState(false);
+  const [regeneratingSummary, setRegeneratingSummary] = useState(false);
+
+  async function handleRegenerateSummary(reportId: string) {
+    setRegeneratingSummary(true);
+    try {
+      const res = await fetch(`/api/reports/${reportId}`, { method: "PATCH" });
+      if (res.ok) {
+        const updated = await res.json();
+        setReports((prev) =>
+          prev.map((r) => (r.id === updated.id ? updated : r))
+        );
+      }
+    } finally {
+      setRegeneratingSummary(false);
+    }
+  }
 
   function handleAddStoreStart() {
     setIsAddingStore(true);
@@ -100,6 +116,19 @@ export function Dashboard({ demo = false }: DashboardProps) {
       const data: Report[] = await res.json();
       setReports(data);
       setSelectedReportId(data[0]?.id ?? null);
+
+      // 「（要約生成中）」のままの日報をバックグラウンドで再試行
+      const pending = data.filter((r) => r.summary === "（要約生成中）");
+      for (const r of pending) {
+        fetch(`/api/reports/${r.id}`, { method: "PATCH" })
+          .then((res) => res.ok ? res.json() : null)
+          .then((updated) => {
+            if (updated) {
+              setReports((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+            }
+          })
+          .catch(() => {});
+      }
     } finally {
       setLoadingReports(false);
     }
