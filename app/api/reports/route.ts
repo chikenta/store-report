@@ -60,13 +60,12 @@ export async function POST(request: NextRequest) {
     .maybeSingle();
 
   if (existing) {
-    // 既存の transcript に追記して再要約
+    // 既存の transcript に追記してまず保存
     const mergedTranscript = existing.transcript + "\n---\n" + transcript;
-    const summary = await summarizeReport(mergedTranscript);
 
     const { data, error } = await supabase
       .from("reports")
-      .update({ transcript: mergedTranscript, summary })
+      .update({ transcript: mergedTranscript })
       .eq("id", existing.id)
       .select()
       .single();
@@ -74,19 +73,25 @@ export async function POST(request: NextRequest) {
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    // AI 要約はバックグラウンドで試みる（失敗しても保存は成功済み）
+    summarizeReport(mergedTranscript)
+      .then((summary) =>
+        supabase.from("reports").update({ summary }).eq("id", existing.id)
+      )
+      .catch(() => {/* 要約失敗は無視 */});
+
     return NextResponse.json(data, { status: 200 });
   }
 
-  // 新規登録
-  const summary = await summarizeReport(transcript);
-
+  // まず保存（要約なし）
   const { data, error } = await supabase
     .from("reports")
     .insert({
       store_name,
       shift,
       transcript,
-      summary,
+      summary: "（要約生成中）",
       reported_at: reportedAt,
     })
     .select()
@@ -95,5 +100,13 @@ export async function POST(request: NextRequest) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  // AI 要約はバックグラウンドで試みる（失敗しても保存は成功済み）
+  summarizeReport(transcript)
+    .then((summary) =>
+      supabase.from("reports").update({ summary }).eq("id", data.id)
+    )
+    .catch(() => {/* 要約失敗は無視 */});
+
   return NextResponse.json(data, { status: 201 });
 }
