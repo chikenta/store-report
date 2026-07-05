@@ -14,7 +14,8 @@ import {
 } from "@/components/ui/select";
 import { Mic, MicOff, CheckCircle, Loader2 } from "lucide-react";
 
-const STORES = ["北店", "南店", "東店", "西店"];
+const DEFAULT_STORES = ["北店", "南店", "東店", "西店"];
+const STORES_KEY = "workspace_stores";
 const SHIFTS = ["早番", "遅番"] as const;
 type Shift = (typeof SHIFTS)[number];
 
@@ -44,7 +45,19 @@ declare global {
 
 export default function NewReportPage() {
   const router = useRouter();
-  const [store, setStore] = useState(STORES[0]);
+  const [stores, setStores] = useState<string[]>(DEFAULT_STORES);
+  const [store, setStore] = useState(DEFAULT_STORES[0]);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORES_KEY);
+      if (saved) {
+        const list = JSON.parse(saved) as string[];
+        setStores(list);
+        setStore(list[0] ?? DEFAULT_STORES[0]);
+      }
+    } catch {}
+  }, []);
   const [shift, setShift] = useState<Shift>("早番");
   const [transcript, setTranscript] = useState("");
   const [status, setStatus] = useState<Status>("idle");
@@ -161,7 +174,12 @@ export default function NewReportPage() {
   return (
     <div className="flex min-h-svh items-center justify-center bg-background px-4">
       <div className="flex w-full max-w-md flex-col gap-6">
-        <h1 className="text-xl font-semibold">本日の報告</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-semibold">本日の報告</h1>
+          <Button variant="default" size="sm" onClick={() => router.push("/")}>
+            ダッシュボード
+          </Button>
+        </div>
 
         {/* 店舗 */}
         <div className="flex flex-col gap-2">
@@ -173,7 +191,7 @@ export default function NewReportPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {STORES.map((s) => (
+              {stores.map((s) => (
                 <SelectItem key={s} value={s}>
                   {s}
                 </SelectItem>

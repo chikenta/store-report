@@ -11,23 +11,34 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "store_name is required" }, { status: 400 });
   }
 
-  const targetDate = subMonths(new Date(), monthsAgo);
-  const year = targetDate.getFullYear();
-  const month = targetDate.getMonth() + 1;
+  // まず指定月を試み、週報がなければ直近の週報がある月を使う
+  let weeklies: { summary: string; week: number }[] | null = null;
+  let year = 0;
+  let month = 0;
 
-  const { data: weeklies, error: weekliesError } = await supabase
-    .from("weekly_summaries")
-    .select("summary, week")
-    .eq("store_name", store_name)
-    .eq("year", year)
-    .order("week", { ascending: true });
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const targetDate = subMonths(new Date(), monthsAgo + attempt);
+    year = targetDate.getFullYear();
+    month = targetDate.getMonth() + 1;
 
-  if (weekliesError) {
-    return NextResponse.json({ error: weekliesError.message }, { status: 500 });
+    const { data, error: weekliesError } = await supabase
+      .from("weekly_summaries")
+      .select("summary, week")
+      .eq("store_name", store_name)
+      .eq("year", year)
+      .order("week", { ascending: true });
+
+    if (weekliesError) {
+      return NextResponse.json({ error: weekliesError.message }, { status: 500 });
+    }
+    if (data && data.length > 0) {
+      weeklies = data;
+      break;
+    }
   }
 
   if (!weeklies || weeklies.length === 0) {
-    return NextResponse.json({ error: "この月に週報がありません" }, { status: 404 });
+    return NextResponse.json({ error: "週報がありません" }, { status: 404 });
   }
 
   const summary = await generateMonthlySummary(

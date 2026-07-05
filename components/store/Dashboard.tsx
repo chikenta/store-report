@@ -28,6 +28,20 @@ import {
 } from "@/lib/store-demo-data";
 
 const INITIAL_STORES = ["北店", "南店", "東店", "西店"];
+const STORES_KEY = "workspace_stores";
+
+function loadStores(): string[] {
+  if (typeof window === "undefined") return INITIAL_STORES;
+  try {
+    const saved = localStorage.getItem(STORES_KEY);
+    if (saved) return JSON.parse(saved) as string[];
+  } catch {}
+  return INITIAL_STORES;
+}
+
+function saveStores(stores: string[]) {
+  try { localStorage.setItem(STORES_KEY, JSON.stringify(stores)); } catch {}
+}
 
 type Pane4Tab = "weekly" | "monthly";
 
@@ -50,6 +64,13 @@ export function Dashboard({ demo = false }: DashboardProps) {
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [pane4Tab, setPane4Tab] = useState<Pane4Tab>("weekly");
 
+  useEffect(() => {
+    if (demo) return;
+    const saved = loadStores();
+    setStores(saved);
+    setSelectedStore(saved[0] ?? INITIAL_STORES[0]);
+  }, [demo]);
+
   const [isAddingStore, setIsAddingStore] = useState(false);
   const [newStoreName, setNewStoreName] = useState("");
   const addInputRef = useRef<HTMLInputElement>(null);
@@ -62,6 +83,22 @@ export function Dashboard({ demo = false }: DashboardProps) {
   const [generatingWeekly, setGeneratingWeekly] = useState(false);
   const [generatingMonthly, setGeneratingMonthly] = useState(false);
   const [regeneratingSummary, setRegeneratingSummary] = useState(false);
+
+  async function handleDeleteWeekly(id: string) {
+    await fetch(`/api/summaries/${id}?type=weekly`, { method: "DELETE" });
+    setWeeklies((prev) => prev.filter((w) => w.id !== id));
+  }
+
+  async function handleDeleteMonthly(id: string) {
+    await fetch(`/api/summaries/${id}?type=monthly`, { method: "DELETE" });
+    setMonthlies((prev) => prev.filter((m) => m.id !== id));
+  }
+
+  async function handleDeleteReport(reportId: string) {
+    await fetch(`/api/reports/${reportId}`, { method: "DELETE" });
+    setReports((prev) => prev.filter((r) => r.id !== reportId));
+    setSelectedReportId(null);
+  }
 
   async function handleRegenerateSummary(reportId: string) {
     setRegeneratingSummary(true);
@@ -87,7 +124,9 @@ export function Dashboard({ demo = false }: DashboardProps) {
   function handleAddStoreCommit() {
     const name = newStoreName.trim();
     if (name && !stores.includes(name)) {
-      setStores((prev) => [...prev, name]);
+      const next = [...stores, name];
+      setStores(next);
+      saveStores(next);
       setSelectedStore(name);
     }
     setIsAddingStore(false);
@@ -102,6 +141,7 @@ export function Dashboard({ demo = false }: DashboardProps) {
   function handleDeleteStore(store: string) {
     const next = stores.filter((s) => s !== store);
     setStores(next);
+    saveStores(next);
     if (selectedStore === store) {
       setSelectedStore(next[0] ?? "");
     }
@@ -113,7 +153,8 @@ export function Dashboard({ demo = false }: DashboardProps) {
     setLoadingReports(true);
     try {
       const res = await fetch(`/api/reports?store=${encodeURIComponent(store)}&limit=30`);
-      const data: Report[] = await res.json();
+      const json = await res.json();
+      const data: Report[] = Array.isArray(json) ? json : [];
       setReports(data);
       setSelectedReportId(data[0]?.id ?? null);
 
@@ -203,22 +244,20 @@ export function Dashboard({ demo = false }: DashboardProps) {
   return (
     <div className="flex h-svh flex-col bg-background">
       {/* ヘッダー */}
-      <header className="flex h-11 shrink-0 items-center justify-between border-b border-border px-4">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold">店舗レポート</span>
-          {demo && (
-            <Badge variant="secondary" className="text-xs">
-              サンプル
-            </Badge>
-          )}
-        </div>
+      <header className="flex h-11 shrink-0 items-center border-b border-border px-4 gap-3">
+        <span className="text-sm font-semibold">店舗レポート</span>
         <Link href={demo ? "/demo/report/new" : "/report/new"}>
           <Button size="sm">音声入力画面</Button>
         </Link>
+        {demo && (
+          <Badge variant="secondary" className="text-xs">
+            サンプル
+          </Badge>
+        )}
       </header>
 
       {/* 4ペイン */}
-      <div className="grid min-h-0 flex-1 grid-cols-[100px_220px_1fr_220px]">
+      <div className="grid min-h-0 flex-1 grid-cols-[100px_220px_2fr_1fr]">
         {/* Pane1: 店舗リスト */}
         <aside className="flex flex-col border-r border-border">
           <div className="flex items-center justify-between border-b border-border px-3 py-2">
@@ -344,12 +383,45 @@ export function Dashboard({ demo = false }: DashboardProps) {
           <ScrollArea className="flex-1 p-4">
             {selectedReport ? (
               <div className="flex flex-col gap-4">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold">
-                    {selectedReport.store_name} /{" "}
-                    {format(new Date(selectedReport.reported_at), "M/d（EEE）")}
-                  </span>
-                  <Badge variant="outline">{selectedReport.shift}</Badge>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold">
+                      {selectedReport.store_name} /{" "}
+                      {format(new Date(selectedReport.reported_at), "M/d（EEE）")}
+                    </span>
+                    <Badge variant="outline">{selectedReport.shift}</Badge>
+                  </div>
+                  {!demo && (
+                    <AlertDialog>
+                      <AlertDialogTrigger
+                        render={
+                          <button
+                            className="rounded p-1 text-muted-foreground transition-colors hover:text-destructive"
+                            aria-label="日報を削除"
+                          />
+                        }
+                      >
+                        <Trash2 className="size-3.5" />
+                      </AlertDialogTrigger>
+                      <AlertDialogContent size="sm">
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>日報を削除しますか？</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            この日報を削除します。この操作は元に戻せません。
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>いいえ</AlertDialogCancel>
+                          <AlertDialogAction
+                            variant="destructive"
+                            onClick={() => handleDeleteReport(selectedReport.id)}
+                          >
+                            はい、削除する
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
                 </div>
                 <Separator />
                 <div className="flex flex-col gap-2">
@@ -357,7 +429,7 @@ export function Dashboard({ demo = false }: DashboardProps) {
                     AI 要約
                   </span>
                   <div className="rounded-md border border-border bg-muted/40 px-3 py-2.5">
-                    <p className="text-sm">{selectedReport.summary}</p>
+                    <p className="whitespace-pre-line text-sm">{selectedReport.summary}</p>
                   </div>
                 </div>
               </div>
@@ -403,14 +475,35 @@ export function Dashboard({ demo = false }: DashboardProps) {
                   <p className="px-3 py-4 text-xs text-muted-foreground">週報なし</p>
                 ) : (
                   weeklies.map((w) => (
-                    <div key={w.id} className="flex flex-col gap-1 border-b border-border px-3 py-2.5">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold">{w.period_label}</span>
-                        {w.auto_generated && (
-                          <Badge variant="secondary" className="text-xs">自動</Badge>
+                    <div key={w.id} className="group/weekly flex flex-col gap-1 border-b border-border px-3 py-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold">{w.period_label}</span>
+                          {w.auto_generated && (
+                            <Badge variant="secondary" className="text-xs">自動</Badge>
+                          )}
+                        </div>
+                        {!demo && (
+                          <AlertDialog>
+                            <AlertDialogTrigger render={
+                              <button className="rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover/weekly:opacity-100" aria-label="週報を削除" />
+                            }>
+                              <Trash2 className="size-3" />
+                            </AlertDialogTrigger>
+                            <AlertDialogContent size="sm">
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>週報を削除しますか？</AlertDialogTitle>
+                                <AlertDialogDescription>「{w.period_label}」の週報を削除します。この操作は元に戻せません。</AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>いいえ</AlertDialogCancel>
+                                <AlertDialogAction variant="destructive" onClick={() => handleDeleteWeekly(w.id)}>はい、削除する</AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground">{w.summary}</p>
+                      <p className="whitespace-pre-line text-xs text-muted-foreground">{w.summary}</p>
                     </div>
                   ))
                 )}
@@ -442,16 +535,37 @@ export function Dashboard({ demo = false }: DashboardProps) {
                   <p className="px-3 py-4 text-xs text-muted-foreground">月報なし</p>
                 ) : (
                   monthlies.map((m) => (
-                    <div key={m.id} className="flex flex-col gap-1 border-b border-border px-3 py-2.5">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold">
-                          {m.year}年{m.month}月
-                        </span>
-                        {m.auto_generated && (
-                          <Badge variant="secondary" className="text-xs">自動</Badge>
+                    <div key={m.id} className="group/monthly flex flex-col gap-1 border-b border-border px-3 py-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold">
+                            {m.year}年{m.month}月
+                          </span>
+                          {m.auto_generated && (
+                            <Badge variant="secondary" className="text-xs">自動</Badge>
+                          )}
+                        </div>
+                        {!demo && (
+                          <AlertDialog>
+                            <AlertDialogTrigger render={
+                              <button className="rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover/monthly:opacity-100" aria-label="月報を削除" />
+                            }>
+                              <Trash2 className="size-3" />
+                            </AlertDialogTrigger>
+                            <AlertDialogContent size="sm">
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>月報を削除しますか？</AlertDialogTitle>
+                                <AlertDialogDescription>「{m.year}年{m.month}月」の月報を削除します。この操作は元に戻せません。</AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>いいえ</AlertDialogCancel>
+                                <AlertDialogAction variant="destructive" onClick={() => handleDeleteMonthly(m.id)}>はい、削除する</AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground">{m.summary}</p>
+                      <p className="whitespace-pre-line text-xs text-muted-foreground">{m.summary}</p>
                     </div>
                   ))
                 )}

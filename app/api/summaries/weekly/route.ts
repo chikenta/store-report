@@ -11,28 +11,40 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "store_name is required" }, { status: 400 });
   }
 
-  const targetDate = subWeeks(new Date(), weeksAgo);
+  // まず指定週を試み、日報がなければ直近の日報がある週を使う
+  let targetDate = subWeeks(new Date(), weeksAgo);
+  let reports: { summary: string }[] | null = null;
+
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const weekStart = startOfISOWeek(targetDate);
+    const weekEnd = endOfISOWeek(targetDate);
+    const { data, error: reportsError } = await supabase
+      .from("reports")
+      .select("summary")
+      .eq("store_name", store_name)
+      .gte("reported_at", weekStart.toISOString())
+      .lte("reported_at", weekEnd.toISOString())
+      .order("reported_at", { ascending: true });
+
+    if (reportsError) {
+      return NextResponse.json({ error: reportsError.message }, { status: 500 });
+    }
+    if (data && data.length > 0) {
+      reports = data;
+      break;
+    }
+    targetDate = subWeeks(targetDate, 1);
+  }
+
+  if (!reports || reports.length === 0) {
+    return NextResponse.json({ error: "日報がありません" }, { status: 404 });
+  }
+
   const year = getISOWeekYear(targetDate);
   const week = getISOWeek(targetDate);
   const weekStart = startOfISOWeek(targetDate);
   const weekEnd = endOfISOWeek(targetDate);
   const periodLabel = `${format(weekStart, "M/d")}〜${format(weekEnd, "M/d")}`;
-
-  const { data: reports, error: reportsError } = await supabase
-    .from("reports")
-    .select("summary")
-    .eq("store_name", store_name)
-    .gte("reported_at", weekStart.toISOString())
-    .lte("reported_at", weekEnd.toISOString())
-    .order("reported_at", { ascending: true });
-
-  if (reportsError) {
-    return NextResponse.json({ error: reportsError.message }, { status: 500 });
-  }
-
-  if (!reports || reports.length === 0) {
-    return NextResponse.json({ error: "この週に日報がありません" }, { status: 404 });
-  }
 
   const summary = await generateWeeklySummary(
     store_name,
