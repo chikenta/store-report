@@ -150,6 +150,8 @@ export function Dashboard({ demo = false }: DashboardProps) {
 
   const fetchReports = useCallback(async (store: string) => {
     setLoadingReports(true);
+    setReports([]);
+    setSelectedReportId(null);
     try {
       const res = await fetch(`/api/reports?store=${encodeURIComponent(store)}&limit=30`);
       const json = await res.json();
@@ -176,6 +178,8 @@ export function Dashboard({ demo = false }: DashboardProps) {
 
   const fetchSummaries = useCallback(async (store: string) => {
     setLoadingWeeklies(true);
+    setWeeklies([]);
+    setMonthlies([]);
     try {
       const [wRes, mRes] = await Promise.all([
         fetch(`/api/summaries?store=${encodeURIComponent(store)}&type=weekly`),
