@@ -44,8 +44,8 @@ declare global {
 
 export default function NewReportPage() {
   const router = useRouter();
-  const [stores, setStores] = useState<string[]>(DEFAULT_STORES);
-  const [store, setStore] = useState(DEFAULT_STORES[0]);
+  const [stores, setStores] = useState<string[]>([]);
+  const [store, setStore] = useState("");
 
   useEffect(() => {
     fetch("/api/stores")

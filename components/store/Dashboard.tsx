@@ -45,8 +45,8 @@ function filterDemoByStore(store: string) {
 }
 
 export function Dashboard({ demo = false }: DashboardProps) {
-  const [stores, setStores] = useState<string[]>(INITIAL_STORES);
-  const [selectedStore, setSelectedStore] = useState(INITIAL_STORES[0]);
+  const [stores, setStores] = useState<string[]>(demo ? INITIAL_STORES : []);
+  const [selectedStore, setSelectedStore] = useState(demo ? INITIAL_STORES[0] : "");
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [pane4Tab, setPane4Tab] = useState<Pane4Tab>("weekly");
 
