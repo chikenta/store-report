@@ -28,20 +28,6 @@ import {
 } from "@/lib/store-demo-data";
 
 const INITIAL_STORES = ["北店", "南店", "東店", "西店"];
-const STORES_KEY = "workspace_stores";
-
-function loadStores(): string[] {
-  if (typeof window === "undefined") return INITIAL_STORES;
-  try {
-    const saved = localStorage.getItem(STORES_KEY);
-    if (saved) return JSON.parse(saved) as string[];
-  } catch {}
-  return INITIAL_STORES;
-}
-
-function saveStores(stores: string[]) {
-  try { localStorage.setItem(STORES_KEY, JSON.stringify(stores)); } catch {}
-}
 
 type Pane4Tab = "weekly" | "monthly";
 
@@ -66,9 +52,14 @@ export function Dashboard({ demo = false }: DashboardProps) {
 
   useEffect(() => {
     if (demo) return;
-    const saved = loadStores();
-    setStores(saved);
-    setSelectedStore(saved[0] ?? INITIAL_STORES[0]);
+    fetch("/api/stores")
+      .then((r) => r.json())
+      .then((data) => {
+        const list: string[] = Array.isArray(data) ? data : INITIAL_STORES;
+        setStores(list);
+        setSelectedStore(list[0] ?? INITIAL_STORES[0]);
+      })
+      .catch(() => {});
   }, [demo]);
 
   const [isAddingStore, setIsAddingStore] = useState(false);
@@ -126,8 +117,12 @@ export function Dashboard({ demo = false }: DashboardProps) {
     if (name && !stores.includes(name)) {
       const next = [...stores, name];
       setStores(next);
-      saveStores(next);
       setSelectedStore(name);
+      fetch("/api/stores", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      }).catch(() => {});
     }
     setIsAddingStore(false);
     setNewStoreName("");
@@ -141,10 +136,14 @@ export function Dashboard({ demo = false }: DashboardProps) {
   function handleDeleteStore(store: string) {
     const next = stores.filter((s) => s !== store);
     setStores(next);
-    saveStores(next);
     if (selectedStore === store) {
       setSelectedStore(next[0] ?? "");
     }
+    fetch("/api/stores", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: store }),
+    }).catch(() => {});
   }
 
   const selectedReport = reports.find((r) => r.id === selectedReportId) ?? reports[0] ?? null;

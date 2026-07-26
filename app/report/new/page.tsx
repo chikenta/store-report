@@ -15,7 +15,6 @@ import {
 import { Mic, MicOff, CheckCircle, Loader2 } from "lucide-react";
 
 const DEFAULT_STORES = ["北店", "南店", "東店", "西店"];
-const STORES_KEY = "workspace_stores";
 const SHIFTS = ["早番", "遅番"] as const;
 type Shift = (typeof SHIFTS)[number];
 
@@ -49,14 +48,14 @@ export default function NewReportPage() {
   const [store, setStore] = useState(DEFAULT_STORES[0]);
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORES_KEY);
-      if (saved) {
-        const list = JSON.parse(saved) as string[];
+    fetch("/api/stores")
+      .then((r) => r.json())
+      .then((data) => {
+        const list: string[] = Array.isArray(data) ? data : DEFAULT_STORES;
         setStores(list);
         setStore(list[0] ?? DEFAULT_STORES[0]);
-      }
-    } catch {}
+      })
+      .catch(() => {});
   }, []);
   const [shift, setShift] = useState<Shift>("早番");
   const [transcript, setTranscript] = useState("");
