@@ -182,8 +182,10 @@ export function Dashboard({ demo = false }: DashboardProps) {
         fetch(`/api/summaries?store=${encodeURIComponent(store)}&type=weekly`),
         fetch(`/api/summaries?store=${encodeURIComponent(store)}&type=monthly`),
       ]);
-      setWeeklies(await wRes.json());
-      setMonthlies(await mRes.json());
+      const wJson = await wRes.json();
+      const mJson = await mRes.json();
+      setWeeklies(Array.isArray(wJson) ? wJson : []);
+      setMonthlies(Array.isArray(mJson) ? mJson : []);
     } finally {
       setLoadingWeeklies(false);
     }
@@ -257,7 +259,7 @@ export function Dashboard({ demo = false }: DashboardProps) {
       </header>
 
       {/* 4ペイン */}
-      <div className="grid min-h-0 flex-1 grid-cols-[100px_220px_2fr_1fr]">
+      <div className="grid min-h-0 flex-1 grid-cols-[120px_220px_2fr_1fr]">
         {/* Pane1: 店舗リスト */}
         <aside className="flex flex-col border-r border-border">
           <div className="flex items-center justify-between border-b border-border px-3 py-2">
