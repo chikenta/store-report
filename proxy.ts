@@ -3,9 +3,10 @@ import { NextRequest, NextResponse } from "next/server";
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // ログインページとAPIは除外
+  // ログインページ・デモページ・APIは除外
   if (
     pathname.startsWith("/login") ||
+    pathname.startsWith("/demo") ||
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon")
