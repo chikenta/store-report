@@ -5,7 +5,7 @@ import { Separator } from "@/components/ui/separator";
 
 export const metadata = {
   title: "店舗レポートシステム — 課題概要",
-  description: "音声入力×AI要約による店舗日報・週報・月報システムの概要",
+  description: "音声入力×AI要約による販促店舗日報・週報・月報システムの概要",
 };
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -36,8 +36,8 @@ export default function OverviewPage() {
           <Badge variant="secondary">課題制作物</Badge>
         </div>
         <p className="text-sm text-muted-foreground">
-          パチンコ店舗のマネージャーが音声で日報を入力し、AI が自動要約・週報・月報を生成する業務支援ツール。
-          すべて無料枠で構築しており、URL を知る社内メンバーのみがアクセスできる。
+    販促担当者が音声で日報を入力し、AI が自動要約・週報・月報を生成する業務支援ツール。
+      すべて無料枠で構築しており、URL を知る社内メンバーのみがアクセスできる。
         </p>
         <div className="flex flex-wrap gap-2">
           <Button render={<Link href="/demo" />} size="sm">デモを見る</Button>
@@ -76,8 +76,8 @@ export default function OverviewPage() {
               <p className="font-semibold">ペイン③</p>
               <p className="text-muted-foreground">AI要約（日報詳細）</p>
               <Separator />
-              <p className="text-muted-foreground">・午前中は全体的に稼働が安定していました。</p>
-              <p className="text-muted-foreground">・ジャグラーコーナーは終日賑わいが見られました。</p>
+              <p className="text-muted-foreground">・午前中は新商品の問い合わせが多く好調でした。</p>
+              <p className="text-muted-foreground">・販促キャンペーンへの反応が想定より高めでした。</p>
             </div>
             <div className="flex flex-col gap-1 bg-card p-2">
               <p className="font-semibold">ペイン④</p>
